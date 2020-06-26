@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<link href='https://fonts.googleapis.com/css?family=Roboto:300,500,700' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>FlutterDart</title>
+</head>
+<body>
+<div id="app">
+	<div class="tab_panels">
+		<div class="tab_panel" v-for="tab in tabs" v-bind:class="{ active: tab.active }">
+			<panels v-on:change-tab="changeTab" :category="tab.category" :page_no="tab.page_no" :next_page_no="tab.next_page_no" :max_per_page="max_per_page" :tabs="tabs"></panels>
+		</div>
+		<div id="directArticle_tabpanel" class="tab_panel">
+			<div id="directArticle_panels" class="panels">
+				<div class="panel">
+					<div class="topbar">
+						<h1>FlutterDart</h1>
+						<div class="menuToggle">
+							<input type="checkbox" />
+							<span></span>
+							<span></span>
+							<span></span>
+							<div class="menu">
+								<a href="/contribute" v-on:click.prevent="openContributeWindow">Contribute to Collection</a>
+								<a href="/contact">Other Queries</a>
+							</div>
+						</div>
+					</div>
+					<div class="panel-content">
+						<div class="article-main">
+							<p class="title" v-text="selectedPost.title"></p>
+							<p class="body" v-text="selectedPost.text"></p>
+						</div>
+						<div class="article-comments">
+							<div class="comment">
+								abscesdsd
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.min.js'></script>
+<script>
+Vue.component('panels', {
+	data: function(){
+		return{
+			posts: [],
+			selectedPostIndex: null,
+			selectedPost: {title: null, body: null},
+		}
+	},
+	props: ['category', 'page_no', 'next_page_no', 'max_per_page', 'tabs'],
+	created: function () {
+		this.loadData();
+	},
+	methods: {
+		loadData: function (callback) {
+			var self = this;
+			gitGetRequest('https://api.github.com/repos/fuwuqi59/testjson/issues?page=' + this.page_no + '&per_page=' + this.max_per_page, function(readyState, status,responseText){
+				if(status === 200 && readyState === 4) {
+					self.posts = JSON.parse(responseText);
+					console.log(self.posts)
+				}
+			});
+		},
+		hideHeaderOnScroll: function(event){
+			console.log()
+			var scroll = event.currentTarget.scrollTop;
+			if (scroll > 16) {
+				event.currentTarget.previousElementSibling.style.height = "0px";
+			} else {
+				event.currentTarget.previousElementSibling.style.height = "50px";
+			}
+		},
+		openContributeWindow: function(){
+			var self = this;
+			if(self.loginToken == null){
+				githubLogin(self.clientId, function(){
+					if(self.loginToken){
+						window.open('/contribute','_blank');
+					}
+				});
+			} else {
+				window.open('/contribute','_blank');
+			}
+		},
+		gotoArticle: function(index){
+			this.selectedPostIndex = index;
+			this.selectedPost = this.posts[index];
+			this.$el.style.transform = 'translateX(-100%)';
+			history.pushState(null, null, "?article=" + this.posts[index].number);
+		},
+		goBack: function(panel){
+			if(this.posts == null){
+				/*this.loadData(function(){
+					document.getElementById('panels').style.transform = 'translateX(0)';
+					history.replaceState(null, null, "");
+				})*/
+			} else {
+				this.$el.style.transform = 'translateX(0)';
+				history.replaceState(null, null, "");
+			}
+		},
+		changeTab: function(event, tab){
+			if(!event.currentTarget.classList.contains('active')){
+				history.pushState(null, null, "?category=" + tab);
+				var currentActiveTab = this.$el.querySelector('.tabs-item.active');
+				currentActiveTab.classList.remove('active');
+				event.currentTarget.classList.add('active')
+				this.$emit('change-tab', tab)
+			}
+		}
+	},
+	template: `<div class="panels">
+				<div class="panel">
+					<div class="topbar">
+						<h1>FlutterDart</h1>
+						<div class="menuToggle">
+							<input type="checkbox" />
+							<span></span>
+							<span></span>
+							<span></span>
+							<div class="menu">
+								<a href="/contribute" v-on:click.prevent="openContributeWindow">Contribute to Collection</a>
+								<a href="/contact">Other Queries</a>
+							</div>
+						</div>
+					</div>
+					<div class="tabs">
+						<a v-for="tab in tabs" class="tabs-item" :class="{ active: tab.active }" :href="'/?category=' + tab.category"  v-on:click.prevent="changeTab($event,tab.category)" v-text="tab.category"></a>
+					</div>
+			<div class="panel-content" v-on:scroll="hideHeaderOnScroll($event)">
+				<div class="grid-container">
+					<div class="article" v-for="(post,index) in posts" > 
+						<p class="title" v-text="post.title"></p>
+						<p class="body" v-text="post.body.trimEllip(200)"></p>
+						<a class="action-details" :href="'pens?article=' + post.number" v-on:click.prevent="gotoArticle(index)">Details</a>
+					</div>
+				</div>
+				<div id="load_more">
+					<a class="btn" :href="'/?category=' + category + '&page_no=' + next_page_no">Load More</a>
+				</div>
+			</div>
+		</div>
+		<div class="panel">
+			<div class="topbar">
+				<svg class="topbar-back-btn svg-icon" viewBox="0 0 20 20" v-on:click="goBack">
+					<path d="M18.271,9.212H3.615l4.184-4.184c0.306-0.306,0.306-0.801,0-1.107c-0.306-0.306-0.801-0.306-1.107,0
+					L1.21,9.403C1.194,9.417,1.174,9.421,1.158,9.437c-0.181,0.181-0.242,0.425-0.209,0.66c0.005,0.038,0.012,0.071,0.022,0.109
+					c0.028,0.098,0.075,0.188,0.142,0.271c0.021,0.026,0.021,0.061,0.045,0.085c0.015,0.016,0.034,0.02,0.05,0.033l5.484,5.483
+					c0.306,0.307,0.801,0.307,1.107,0c0.306-0.305,0.306-0.801,0-1.105l-4.184-4.185h14.656c0.436,0,0.788-0.353,0.788-0.788
+					S18.707,9.212,18.271,9.212z"></path>
+				</svg>
+				<h1>FlutterDart</h1>
+				<div class="menuToggle">
+							<input type="checkbox" />
+							<span></span>
+							<span></span>
+							<span></span>
+							<div class="menu">
+								<a href="/postajob" v-on:click="openContributeWindow()">Contribute to Collection</a>
+								<a href="/contact">Other Queries</a>
+							</div>
+						</div>
+			</div>
+			<div class="panel-content">
+				<div class="article-main">
+					<p class="title" v-text="selectedPost.title"></p>
+					<p class="body" v-text="selectedPost.text"></p>
+				</div>
+				<div class="article-comments">
+					<div class="comment">
+						abscesdsd
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>`
+})
+var app = new Vue({
+	el: '#app',
+	data: {
+		max_per_page: 100,
+		clientId: '5c9fb336e13cfd3fc524',
+		loginToken: null,
+		loginUser: null,
+		selectedPostNum: null,
+		selectedPost: {title: null, body: null},
+		tabs: [{
+			category: 'Pens',
+			page_no: 1,
+			next_page_no: 2,
+			active: false
+		}, {
+			category: 'Code',
+			page_no: 1,
+			next_page_no: 2,
+			active: false
+		}]
+	},
+
+	created: function () {
+		this.loginToken = getCookie('token');
+		if(this.loginToken != null){
+			this.loginUser = getCookie('user');
+		}
+
+		this.selectedPostNum = getUrlParameter('article');
+		if(this.selectedPostNum != ''){
+			this.goDirectArticle(this.selectedPostNum);
+		} else {
+			if(getUrlParameter('category')){
+				var has_page_no, page_no, next_page_no;
+				if(getUrlParameter('page')){
+					has_page_no = true;
+					page_no = parseInt(getUrlParameter('page'));
+					next_page_no = this.page_no;
+				}
+
+				for(var i = 0; i < this.tabs.length; i++){
+					if(this.tabs[i].category == tab){
+						this.tabs[i].active = true;
+						if(has_page_no){
+							this.tabs[i].page_no = page_no;
+							this.tabs[i].next_page_no = next_page_no;
+						}
+					} else {
+						this.tabs[i].active = false;
+					}
+				}
+			} else {
+				this.tabs[0].active = true;
+			}
+		}
+	},
+
+	methods: {
+		openContributeWindow: function(){
+			var self = this;
+			if(self.loginToken == null){
+				githubLogin(self.clientId, function(){
+					if(self.loginToken){
+						window.open('/contribute','_blank');
+					}
+				});
+			} else {
+				window.open('/contribute','_blank');
+			}
+		},
+		changeTab(tab){
+			for(var i = 0; i < this.tabs.length; i++){
+				if(this.tabs[i].category == tab){
+					this.tabs[i].active = true;
+				} else {
+					this.tabs[i].active = false;
+				}
+			}
+		},
+		goDirectArticle: function(number){
+			var self = this;
+			gitGetRequest('https://api.github.com/repos/fuwuqi59/testjson/issues/' + number, function(readyState, status,responseText){
+				if(status === 200 && readyState === 4) {
+					self.selectedPost = JSON.parse(responseText);
+					document.getElementById('directArticle_tabpanel').classList.add('active');
+					history.pushState(null, null, "?article=" + number);
+				}
+			});
+		}
+	}
+});
+
+function fadeCenteredMessage(message,bgcolor){
+	toggleCenteredMessage(message, bgcolor);
+	setTimeout(function(){
+		toggleCenteredMessage('', '');
+	}, 5500);
+}
+function toggleCenteredMessage(message, bgcolor){
+	document.getElementById('modal-overlay').classList.toggle('show');
+	document.getElementById('centered-message').innerText = message;
+	document.getElementById('centered-message').style.background = bgcolor;
+	document.getElementById('centered-message').classList.toggle('show');
+}
+
+function githubLogin(clientId, callback){
+	var popupwin = window.open('https://github.com/login/oauth/authorize?client_id=' + clientId + '&redirect_uri=https%3A%2F%2Fzeit.fuwuqi59.now.sh%2Fgithub_callback&scope=user,repo','targetWindow', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=newWindowSize,height=newWindowSize');
+
+	var pollTimer = window.setInterval(function() {
+    	if (popupwin.closed !== false) {
+        	window.clearInterval(pollTimer);
+			loginToken = getCookie('token');
+			if(loginToken != null){
+				loginUser = getCookie('user');
+				callback();
+			}
+		}
+	}, 200);
+};
+
+function gitGetRequest(url, callback){
+	var xhr = new XMLHttpRequest();
+
+	xhr.addEventListener("readystatechange", function() {
+		callback(this.readyState, this.status, this.responseText);
+	});
+
+	xhr.open("GET", url);
+	xhr.send();
+}
+
+function gitPostRequest(url, token, data, callback){
+	var xhr = new XMLHttpRequest();
+
+	xhr.addEventListener("readystatechange", function() {
+		callback(this.readyState, this.status, this.responseText);
+	});
+
+	xhr.open("POST", url);
+	xhr.setRequestHeader("Authorization", "token " + token);
+	xhr.send(JSON.stringify(data));
+}
+
+function gitRequestPreview(url,callback){
+	var xhr = new XMLHttpRequest();
+
+	xhr.addEventListener("readystatechange", function() {
+		callback(this.readyState, this.status, this.responseText);
+	});
+
+	xhr.open("GET", url);
+	xhr.setRequestHeader("Accept", "application/vnd.github.squirrel-girl-preview");
+	xhr.send();
+}
+
+function setCookie(name,value,days) {
+    var expires = "";
+    if (days) {
+        var date = new Date();
+        date.setTime(date.getTime() + (days*24*60*60*1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+}
+function getCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    }
+    return null;
+}
+function eraseCookie(name) {   
+    document.cookie = name+'=; Max-Age=-99999999;';
+}
+function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+}
+String.prototype.trimEllip = function (length) {
+	return this.length > length ? this.substring(0, length) + "..." : this;
+}
+function isEmail(email) {
+    const re = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    return re.test(String(email).toLowerCase());
+}
+</script>
+</body>
+</html>
